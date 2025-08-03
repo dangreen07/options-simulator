@@ -1,103 +1,201 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useMemo, useEffect } from 'react';
+import TopNavigation from './components/TopNavigation';
+import StrategyTemplates from './components/StrategyTemplates';
+import PayoffChart from './components/PayoffChart';
+import StrategyControls from './components/StrategyControls';
+import StrategyDetails from './components/StrategyDetails';
+import { 
+  generatePayoffData, 
+  calculateStrategyStats,
+  createLongCallStrategy,
+  createBullCallSpreadStrategy,
+  createLongPutStrategy,
+  createShortCallStrategy,
+  createShortPutStrategy,
+  createBearCallSpreadStrategy,
+  createLongStraddleStrategy,
+  Strategy
+} from './utils/optionCalculations';
+
+interface StrategyTemplate {
+  name: string;
+  sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  description: string;
+}
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [activeTab, setActiveTab] = useState('strategy');
+  const [symbol, setSymbol] = useState('NVDA');
+  const [selectedStrategy, setSelectedStrategy] = useState<StrategyTemplate>();
+  const [underlyingPrice, setUnderlyingPrice] = useState<number>(0);
+  const [strike, setStrike] = useState<number>(0);
+  const [loadingPrice, setLoadingPrice] = useState(false);
+  const [size, setSize] = useState(1);
+  const [selectedGreek, setSelectedGreek] = useState('Vega');
+  const [expiration, setExpiration] = useState<number>();
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Fetch underlying price when symbol changes
+  useEffect(() => {
+    if (!symbol) return;
+    
+    setLoadingPrice(true);
+    // Use the options API to get current price from the quote data
+    fetch(`/api/expirations/${symbol}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`Status ${res.status}`);
+        }
+        // Try to get a sample option chain to extract underlying price
+        const expirations = await res.json();
+        if (Array.isArray(expirations) && expirations.length > 0) {
+          // Fetch option chain for first expiration to get underlying price
+          const chainRes = await fetch(`/api/options/${symbol}/${expirations[0]}`);
+          if (chainRes.ok) {
+            const chainData = await chainRes.json();
+            if (chainData.underlyingPrice) {
+              setUnderlyingPrice(chainData.underlyingPrice);
+              // Reset strike to 0 so it gets auto-selected to closest
+              setStrike(0);
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to fetch underlying price for', symbol, ':', err);
+        // Fallback: try to extract from a known working symbol
+        setUnderlyingPrice(100); // Temporary fallback
+      })
+      .finally(() => setLoadingPrice(false));
+  }, [symbol]);
+
+  // Calculate days to expiration
+  const daysToExpiration = useMemo(() => {
+    if (!expiration) return 30; // Default to 30 days
+    const now = Date.now();
+    const expirationDate = expiration * 1000; // Convert from Unix seconds to milliseconds
+    const diffTime = Math.abs(expirationDate - now);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(1, diffDays); // Minimum 1 day
+  }, [expiration]);
+
+  // Create strategy based on selection and parameters
+  const currentStrategy: Strategy | null = useMemo(() => {
+    if (!selectedStrategy) return null;
+
+    switch (selectedStrategy.name) {
+      case 'Long Call':
+        return createLongCallStrategy(strike, underlyingPrice, daysToExpiration);
+      case 'Short Call':
+        return createShortCallStrategy(strike, underlyingPrice, daysToExpiration);
+      case 'Long Put':
+        return createLongPutStrategy(strike, underlyingPrice, daysToExpiration);
+      case 'Short Put':
+        return createShortPutStrategy(strike, underlyingPrice, daysToExpiration);
+      case 'Bull Call Spread':
+        return createBullCallSpreadStrategy(strike, strike + 5, underlyingPrice, daysToExpiration);
+      case 'Bear Call Spread':
+        return createBearCallSpreadStrategy(strike, strike + 5, underlyingPrice, daysToExpiration);
+      case 'Long Straddle':
+        return createLongStraddleStrategy(strike, underlyingPrice, daysToExpiration);
+      default:
+        return createLongCallStrategy(strike, underlyingPrice, daysToExpiration); // Default fallback
+    }
+  }, [selectedStrategy, strike, size, underlyingPrice, daysToExpiration]);
+
+  // Generate payoff data when strategy or parameters change
+  const payoffData = useMemo(() => {
+    if (!currentStrategy) {
+      // Default empty strategy data
+      return generatePayoffData({
+        name: 'Empty Strategy',
+        legs: []
+      }, underlyingPrice);
+    }
+    
+    return generatePayoffData(currentStrategy, underlyingPrice);
+  }, [currentStrategy, underlyingPrice]);
+
+  // Calculate strategy statistics
+  const strategyStats = useMemo(() => {
+    if (!currentStrategy) {
+      return {
+        maxProfit: 0,
+        maxLoss: 0,
+        breakeven: [],
+        profitProbability: 0
+      };
+    }
+    
+    return calculateStrategyStats(currentStrategy, underlyingPrice);
+  }, [currentStrategy, underlyingPrice]);
+
+  const handleExpirationChange = (exp: number) => {
+    setExpiration(exp);
+  };
+
+  const handleStrikeChange = (newStrike: number) => {
+    setStrike(newStrike);
+  };
+
+  const handleSizeChange = (newSize: number) => {
+    setSize(newSize);
+  };
+
+  const handleGreekChange = (greek: string) => {
+    setSelectedGreek(greek);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <TopNavigation 
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        symbol={symbol}
+        onSymbolChange={setSymbol}
+      />
+      
+      <StrategyControls
+        symbol={symbol}
+        onExpirationChange={handleExpirationChange}
+        onStrikeChange={handleStrikeChange}
+        onSizeChange={handleSizeChange}
+        onGreekChange={handleGreekChange}
+        selectedGreek={selectedGreek}
+        strike={strike}
+        size={size}
+        underlyingPrice={underlyingPrice}
+      />
+
+      <div className="flex h-[calc(100vh-9rem)]">
+        <StrategyTemplates 
+          onSelectStrategy={setSelectedStrategy}
+          selectedStrategy={selectedStrategy}
+        />
+        
+        <div className="flex-1 flex flex-col">
+          <PayoffChart 
+            underlyingPrice={underlyingPrice}
+            data={payoffData}
+            selectedGreek={selectedGreek}
+            breakevens={strategyStats.breakeven}
+          />
+          
+          <StrategyDetails
+            underlyingPrice={underlyingPrice}
+            maxProfit={strategyStats.maxProfit}
+            maxLoss={strategyStats.maxLoss}
+            winRate={strategyStats.profitProbability}
+            breakeven={strategyStats.breakeven[0] || 0}
+            lotSize={size * 100}
+            delta={55.89}
+            gamma={3.69}
+            theta={-17.2}
+            daysToExpiration={daysToExpiration}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
     </div>
   );
 }
