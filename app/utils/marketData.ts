@@ -12,6 +12,22 @@
 
 import yahooFinance from "yahoo-finance2";
 
+interface OptionContract {
+  strike: number;
+  [key: string]: unknown;
+}
+
+interface QuoteData {
+  regularMarketPrice?: number;
+  regularMarketPreviousClose?: number;
+  [key: string]: unknown;
+}
+
+interface OptionChainResponse {
+  quote?: QuoteData;
+  [key: string]: unknown;
+}
+
 /**
  * Returns the list of available option expiration dates for the given symbol.
  *
@@ -50,8 +66,8 @@ export async function getOptionChain(
   expiration: number
 ): Promise<{
   underlyingPrice: number;
-  calls: any[];
-  puts: any[];
+  calls: OptionContract[];
+  puts: OptionContract[];
 }> {
   if (!symbol || !expiration) {
     throw new Error("`symbol` and `expiration` are required");
@@ -68,7 +84,7 @@ export async function getOptionChain(
   return {
     underlyingPrice:
       // Prefer regular market price; fall back to previous close.
-      (chain as any).quote?.regularMarketPrice ?? (chain as any).quote?.regularMarketPreviousClose ?? 0,
+      (chain as OptionChainResponse).quote?.regularMarketPrice ?? (chain as OptionChainResponse).quote?.regularMarketPreviousClose ?? 0,
     calls: data.calls ?? [],
     puts: data.puts ?? [],
   };

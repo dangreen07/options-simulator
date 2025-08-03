@@ -22,7 +22,7 @@ export default function StrategyDetails({
   lotSize = 100,
   delta = 55.89,
   gamma = 3.69,
-  theta = -17.2,
+  theta: _theta = -17.2, // eslint-disable-line @typescript-eslint/no-unused-vars
   daysToExpiration = 30
 }: StrategyDetailsProps) {
   const formatCurrency = (value: number) => {

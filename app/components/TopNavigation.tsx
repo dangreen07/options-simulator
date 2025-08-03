@@ -9,7 +9,12 @@ interface TopNavigationProps {
   onSymbolChange: (symbol: string) => void;
 }
 
-export default function TopNavigation({ activeTab, onTabChange, symbol, onSymbolChange }: TopNavigationProps) {
+export default function TopNavigation({ 
+  activeTab: _activeTab, // eslint-disable-line @typescript-eslint/no-unused-vars
+  onTabChange: _onTabChange, // eslint-disable-line @typescript-eslint/no-unused-vars
+  symbol, 
+  onSymbolChange 
+}: TopNavigationProps) {
   const [inputValue, setInputValue] = useState(symbol);
 
   const handleSubmit = () => {

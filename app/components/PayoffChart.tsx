@@ -2,12 +2,24 @@
 
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 
+interface PayoffDataPoint {
+  price: number;
+  payoff: number;
+  delta: number;
+  gamma: number;
+  theta: number;
+  vega: number;
+  scaledGreek?: number;
+}
+
 interface PayoffChartProps {
   underlyingPrice: number;
-  data: Array<{ price: number; payoff: number; delta: number; gamma: number; theta: number; vega: number }>;
+  data: PayoffDataPoint[];
   selectedGreek: string;
   breakevens?: number[];
 }
+
+
 
 // Scale Greek values to be visible alongside P&L values
 function scaleGreekData(data: PayoffChartProps['data'], selectedGreek: string) {
@@ -32,7 +44,7 @@ function scaleGreekData(data: PayoffChartProps['data'], selectedGreek: string) {
   }));
 }
 
-function getGreekValue(dataPoint: any, selectedGreek: string) {
+function getGreekValue(dataPoint: PayoffDataPoint, selectedGreek: string): number {
   switch (selectedGreek.toLowerCase()) {
     case 'delta': return dataPoint.delta;
     case 'gamma': return dataPoint.gamma;
@@ -82,7 +94,7 @@ export default function PayoffChart({ underlyingPrice, data, selectedGreek, brea
                 borderRadius: '6px'
               }}
               labelStyle={{ color: '#F9FAFB' }}
-              formatter={(value: number, name: string, props: any) => {
+              formatter={(value: number, name: string, props: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                 if (name === 'P&L') {
                   return [`$${value.toFixed(2)}`, name];
                 } else if (name.includes('scaled')) {

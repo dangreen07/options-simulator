@@ -92,7 +92,7 @@ function calculateDelta(strategy: Strategy, price: number, currentPrice: number)
   let totalDelta = 0;
   
   for (const leg of strategy.legs) {
-    const moneyness = price / leg.strike;
+    // const moneyness = price / leg.strike; // Currently unused
     let legDelta = 0;
     
     if (leg.type === 'call') {
@@ -344,7 +344,7 @@ function calculateRealisticPremium(type: 'call' | 'put', strike: number, current
   // Time value calculation (simplified)
   const timeToExpiration = daysToExpiration / 365;
   const volatility = 0.25; // Assume 25% implied volatility
-  const riskFreeRate = 0.05; // 5% risk-free rate
+  // const riskFreeRate = 0.05; // 5% risk-free rate (currently unused)
   
   // Distance from ATM (moneyness factor)
   const moneyness = Math.abs(currentPrice - strike) / currentPrice;

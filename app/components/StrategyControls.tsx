@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 
 // Removed hardcoded strike generation - now using real market data
 
+interface OptionContract {
+  strike: number;
+  [key: string]: unknown;
+}
+
 interface StrategyControlsProps {
   symbol: string;
   onExpirationChange: (exp: number) => void;
@@ -104,7 +109,7 @@ export default function StrategyControls({
         if (data.calls && Array.isArray(data.calls)) {
           // Extract unique strike prices from the options chain
           const strikeSet = new Set<number>();
-          data.calls.forEach((option: any) => {
+          data.calls.forEach((option: OptionContract) => {
             if (typeof option.strike === 'number') {
               strikeSet.add(option.strike);
             }
@@ -113,7 +118,7 @@ export default function StrategyControls({
           setAvailableStrikes(strikes);
           
           // Auto-select the closest strike to underlying price on first load OR when strike is 0
-          if (strikes.length > 0 && (availableStrikes.length === 0 || strike === 0)) {
+          if (strikes.length > 0 && (availableStrikes.length === 0 || strike === 0) && underlyingPrice > 0) {
             const closestStrike = strikes.reduce((prev: number, curr: number) => 
               Math.abs(curr - underlyingPrice) < Math.abs(prev - underlyingPrice) ? curr : prev
             );
@@ -127,7 +132,7 @@ export default function StrategyControls({
         setAvailableStrikes([]);
       })
       .finally(() => setLoadingStrikes(false));
-  }, [symbol, selectedExpiration, strike, underlyingPrice, onStrikeChange]); // Added back necessary dependencies
+  }, [symbol, selectedExpiration, strike, underlyingPrice, onStrikeChange, availableStrikes.length]); // Added missing dependency
 
   const handleExpirationChange = (exp: number) => {
     setSelectedExpiration(exp);

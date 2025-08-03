@@ -31,7 +31,7 @@ export default function Home() {
   const [selectedStrategy, setSelectedStrategy] = useState<StrategyTemplate>();
   const [underlyingPrice, setUnderlyingPrice] = useState<number>(0);
   const [strike, setStrike] = useState<number>(0);
-  const [loadingPrice, setLoadingPrice] = useState(false);
+  const [_loadingPrice, setLoadingPrice] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [size, setSize] = useState(1);
   const [selectedGreek, setSelectedGreek] = useState('Vega');
   const [expiration, setExpiration] = useState<number>();
@@ -102,7 +102,7 @@ export default function Home() {
       default:
         return createLongCallStrategy(strike, underlyingPrice, daysToExpiration); // Default fallback
     }
-  }, [selectedStrategy, strike, size, underlyingPrice, daysToExpiration]);
+  }, [selectedStrategy, strike, underlyingPrice, daysToExpiration]);
 
   // Generate payoff data when strategy or parameters change
   const payoffData = useMemo(() => {
